@@ -1,0 +1,9 @@
+# 操作系统临时文件
+.DS_Store
+Thumbs.db
+
+# Obsidian 回收站
+.trash/
+
+# 如果不想上传 Obsidian 配置，可以取消下面一行的注释
+.obsidian/
