@@ -1,26 +1,38 @@
-  
-
-# JVM 学习笔记（三）类加载与字节码技术&内存模型
-
-[![CodeAli](https://profile-avatar.csdnimg.cn/463cb1e9fad345ef965a1513de5fd762_weixin_50280576.jpg!1)CodeAli![博客等级](https://csdnimg.cn/identity/blog4.png)](https://blog.csdn.net/weixin_50280576)[墨衍会员·AI 创作全网分发](https://mp.csdn.net/vip?spm=1001.2101.3001.11990&firstTemplateId=4&templateId=4)[](https://mp.csdn.net/vip?spm=1001.2101.3001.11990&firstTemplateId=4&templateId=4)码龄6年
-
-关注
-
-原创2021-02-11 22:54:391.1w 阅读[AI 写同款·AI 选题›](https://mp.csdn.net/creation_topic?spm=1001.2101.3001.11779)
-
-[数据分析—用户行为数据分析一般价值用户（R高F高M低）：用户处于购买活跃期，感兴趣的商品多，购买次数少 → 针对该部分客户，目的就是要让他们购买，所以可以和运营部门沟通，降低利润，给出有力折扣促进购买，进而转为重要价值用户。重要价值用户（R高F高M高）维护：用户处于购买活跃期，感兴趣的商品多，购买次数也多 → 针对兴趣产品，保持一定频率的触达，持续维护。阅读详情](https://blog.csdn.net/m0_74091312/article/details/131832686?spm=1001.2101.3001.6661.1&utm_medium=distribute.pc_relevant_t0.none-task-blog-pc_relevant_commercial_fallback_v1-1-131832686-blog-113784268.235%5Ev43%5Epc_blog_bottom_relevance_base6.t0_fb&depth_1-utm_source=distribute.pc_relevant_t0.none-task-blog-pc_relevant_commercial_fallback_v1-1-131832686-blog-113784268.235%5Ev43%5Epc_blog_bottom_relevance_base6)
-
 ## 四、类加载与字节码技术
 
 ![在这里插入图片描述](https://i-blog.csdnimg.cn/blog_migrate/4736f9f9ad3c91252ff22cfbf1c6bd06.png)
 
 ### 1、类文件结构
 
-通过 javac 类名.java 编译 java 文件后，会生成一个 .class 的文件！  
+通过 java .c 类名.java 编译 java 文件后，会生成一个 .class 的文件  
 以下是字节码文件：
+```
+0000000 ca fe ba be 00 00 00 34 00 23 0a 00 06 00 15 09 
+0000020 00 16 00 17 08 00 18 0a 00 19 00 1a 07 00 1b 07 
+......
+0001100 00 12 00 00 00 05 01 00 10 00 00 00 01 00 13 00 
+0001120 00 00 02 00 14
+```
 
 根据 JVM 规范，类文件结构如下：
-
+```
+u4 			   magic
+u2             minor_version;    
+u2             major_version;    
+u2             constant_pool_count;    
+cp_info        constant_pool[constant_pool_count-1];    
+u2             access_flags;    
+u2             this_class;    
+u2             super_class;   
+u2             interfaces_count;    
+u2             interfaces[interfaces_count];   
+u2             fields_count;    
+field_info     fields[fields_count];   
+u2             methods_count;    
+method_info    methods[methods_count];    
+u2             attributes_count;    
+attribute_info attributes[attributes_count];
+```
 #### 1）魔数
 
 u4 magic  
@@ -49,10 +61,22 @@ u2 major_version;
 #### 1）javap 工具
 
 Java 中提供了 javap 工具来反编译 class 文件
-
+```
+javap -v D:Demo.class
+```
 #### 2）图解方法执行流程
 
 **代码**
+```
+public class Demo3_1 {    
+	public static void main(String[] args) {        
+		int a = 10;        
+		int b = Short.MAX_VALUE + 1;        
+		int c = a + b;        
+		System.out.println(c);   
+    } 
+}
+```
 
 **常量池载入运行时常量池**  
 常量池也属于方法区，只不过这里单独提出来了  
@@ -111,13 +135,62 @@ Java 中提供了 javap 工具来反编译 class 文件
 #### 3）通过字节码指令分析问题
 
 代码
+```
+public class Code_11_ByteCodeTest {
+    public static void main(String[] args) {
 
+        int i = 0;
+        int x = 0;
+        while (i < 10) {
+            x = x++;
+            i++;
+        }
+        System.out.println(x); // 0
+    }
+}
+```
 为什么最终的 x 结果为 0 呢？ 通过分析字节码指令即可知晓
+```
+Code:
+     stack=2, locals=3, args_size=1	// 操作数栈分配2个空间，局部变量表分配 3 个空间
+        0: iconst_0	// 准备一个常数 0
+        1: istore_1	// 将常数 0 放入局部变量表的 1 号槽位 i = 0
+        2: iconst_0	// 准备一个常数 0
+        3: istore_2	// 将常数 0 放入局部变量的 2 号槽位 x = 0	
+        4: iload_1		// 将局部变量表 1 号槽位的数放入操作数栈中
+        5: bipush        10	// 将数字 10 放入操作数栈中，此时操作数栈中有 2 个数
+        7: if_icmpge     21	// 比较操作数栈中的两个数，如果下面的数大于上面的数，就跳转到 21 。这里的比较是将两个数做减法。因为涉及运算操作，所以会将两个数弹出操作数栈来进行运算。运算结束后操作数栈为空
+       10: iload_2		// 将局部变量 2 号槽位的数放入操作数栈中，放入的值是 0 
+       11: iinc          2, 1	// 将局部变量 2 号槽位的数加 1 ，自增后，槽位中的值为 1 
+       14: istore_2	//将操作数栈中的数放入到局部变量表的 2 号槽位，2 号槽位的值又变为了0
+       15: iinc          1, 1 // 1 号槽位的值自增 1 
+       18: goto          4 // 跳转到第4条指令
+       21: getstatic     #2                  // Field java/lang/System.out:Ljava/io/PrintStream;
+       24: iload_2
+       25: invokevirtual #3                  // Method java/io/PrintStream.println:(I)V
+       28: return
 
+```
 #### 4）构造方法
 
 **cinit()V**
+```
+public class Code_12_CinitTest {
+	static int i = 10;
 
+	static {
+		i = 20;
+	}
+
+	static {
+		i = 30;
+	}
+
+	public static void main(String[] args) {
+		System.out.println(i); // 30
+	}
+}
+```
 编译器会按从上至下的顺序，收集所有 static 静态代码块和静态成员赋值的代码，合并为一个特殊的方法 cinit()V ：
 
 **init()V**
